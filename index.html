@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EEG Spike Annotator</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #12121f;
+    color: #dde;
+    font-family: 'Courier New', monospace;
+    padding: 16px;
+    user-select: none;
+    min-height: 100vh;
+  }
+
+  #config-banner {
+    background: #2a1505;
+    border: 1px solid #a64;
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    font-size: 12px;
+    color: #fca;
+    display: none;
+  }
+  #config-banner.visible { display: block; }
+  #config-banner code { background: #3a2010; padding: 1px 4px; border-radius: 3px; }
+
+  #header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  #title { font-size: 15px; font-weight: bold; color: #aac; }
+  #clip-label { font-size: 12px; color: #55aaff; margin-left: 12px; }
+  #clip-info { font-size: 12px; color: #666; }
+
+  #progress-track {
+    height: 3px;
+    background: #222;
+    border-radius: 2px;
+    margin-bottom: 10px;
+    overflow: hidden;
+  }
+  #progress-fill {
+    height: 100%;
+    background: #3af;
+    border-radius: 2px;
+    transition: width 0.15s;
+    width: 0%;
+  }
+
+  #canvas-wrap {
+    position: relative;
+    background: #0b0b18;
+    border: 1px solid #2a2a3a;
+    border-radius: 6px;
+    overflow: hidden;
+    cursor: crosshair;
+  }
+
+  canvas { display: block; }
+
+  #legend {
+    display: flex;
+    gap: 18px;
+    margin: 6px 0;
+    font-size: 11px;
+    color: #666;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .leg { display: flex; align-items: center; gap: 5px; }
+  .leg-swatch {
+    width: 12px; height: 12px; border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  #controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    background: #1e1e35;
+    color: #ccd;
+    border: 1px solid #3a3a55;
+    padding: 7px 14px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12px;
+    transition: background 0.1s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: #2a2a4a; }
+  .btn:active { background: #3a3a6a; }
+  .btn:disabled { opacity: 0.35; cursor: default; }
+  .btn.primary { background: #1a3a5a; border-color: #2a5a8a; color: #8cf; }
+  .btn.primary:hover { background: #1e4a70; }
+
+  #spacer { flex: 1; }
+
+  #gain-label { font-size: 12px; color: #7af; min-width: 80px; text-align: right; }
+  #ann-count  { font-size: 12px; color: #fa8; min-width: 70px; text-align: right; }
+
+  #status {
+    font-size: 11px;
+    color: #555;
+    margin-top: 8px;
+    min-height: 16px;
+  }
+
+  #keyboard-hint {
+    font-size: 11px;
+    color: #444;
+    margin-top: 6px;
+  }
+  #keyboard-hint kbd {
+    background: #222;
+    border: 1px solid #444;
+    border-radius: 3px;
+    padding: 1px 4px;
+    font-family: inherit;
+  }
+</style>
+</head>
+<body>
+
+<div id="config-banner">
+  ⚠️ Set <code>GITHUB_RAW_BASE</code> at the top of the &lt;script&gt; to your GitHub raw URL before deploying.
+</div>
+
+<div id="header">
+  <div>
+    <span id="title">EEG Spike Annotator</span>
+    <span id="clip-label"></span>
+  </div>
+  <div id="clip-info">Loading…</div>
+</div>
+
+<div id="progress-track">
+  <div id="progress-fill"></div>
+</div>
+
+<div id="canvas-wrap">
+  <canvas id="eeg"></canvas>
+</div>
+
+<div id="legend">
+  <div class="leg"><div class="leg-swatch" style="background:#4af;border-radius:2px;height:3px;width:18px;"></div> EEG</div>
+  <div class="leg"><div class="leg-swatch" style="background:rgba(60,100,160,0.5);border-radius:2px;"></div> Stim ON</div>
+  <div class="leg"><div class="leg-swatch" style="background:#ff5555"></div> Spike marker</div>
+</div>
+
+<div id="controls">
+  <button class="btn" id="btn-prev">◀ Prev</button>
+  <button class="btn" id="btn-next">Next ▶</button>
+  <div id="spacer"></div>
+  <span id="gain-label">Gain: 1.0×</span>
+  <button class="btn" id="btn-gain-up">Gain +</button>
+  <button class="btn" id="btn-gain-down">Gain −</button>
+  <button class="btn" id="btn-gain-reset">Reset</button>
+  <div id="spacer"></div>
+  <span id="ann-count">0 spikes</span>
+  <button class="btn primary" id="btn-export">⬇ Export CSV</button>
+</div>
+
+<div id="status">Initializing…</div>
+<div id="keyboard-hint">
+  <kbd>←</kbd><kbd>→</kbd> navigate &nbsp;|&nbsp;
+  <kbd>↑</kbd><kbd>↓</kbd> gain &nbsp;|&nbsp;
+  click waveform to mark spike &nbsp;|&nbsp;
+  click existing marker to remove
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+//  CONFIGURATION
+//  Set GITHUB_RAW_BASE to the raw URL of your clips folder, e.g.:
+//  'https://raw.githubusercontent.com/yourname/yourrepo/main/clips/'
+// ═══════════════════════════════════════════════════════════════════════════
+const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/YOUR_USER/YOUR_REPO/main/clips/';
+// ═══════════════════════════════════════════════════════════════════════════
+
+const CHUNK_LEN        = 10000;
+const SAMPLE_RATE      = 1000;
+const CANVAS_HEIGHT    = 420;
+const PAD_TOP          = 24;
+const PAD_BOTTOM       = 32;
+const SNAP_THRESH_PX   = 28;   // max vertical pixels from line to register click
+const DESELECT_DIST_PX = 10;   // horizontal pixels near existing marker to deselect
+const GAIN_STEP        = 1.6;
+
+const canvas = document.getElementById('eeg');
+const ctx    = canvas.getContext('2d');
+
+let clips      = [];
+let currentIdx = 0;
+let eegData    = null;   // Float32Array
+let stimFlg    = null;   // Uint8Array
+let annotations = {};    // { filename: [sampleIdx, ...] }
+let gain       = 1.0;
+let dataMin    = 0;
+let dataMax    = 1;
+let loading    = false;
+
+// ─── Initialization ────────────────────────────────────────────────────────
+
+async function init() {
+  const isPlaceholder = GITHUB_RAW_BASE.includes('YOUR_USER');
+  if (isPlaceholder) {
+    document.getElementById('config-banner').classList.add('visible');
+  }
+
+  loadAnnotations();
+  resizeCanvas();
+
+  setStatus('Fetching manifest.json…');
+  try {
+    const res = await fetch(GITHUB_RAW_BASE + 'manifest.json');
+    if (!res.ok) throw new Error(`HTTP ${res.status} — check GITHUB_RAW_BASE`);
+    clips = await res.json();
+    if (!Array.isArray(clips) || clips.length === 0) throw new Error('manifest.json is empty or malformed');
+    setStatus(`${clips.length} clips loaded.`);
+    await loadClip(0);
+  } catch (err) {
+    setStatus('⚠ ' + err.message);
+  }
+}
+
+function resizeCanvas() {
+  canvas.width  = Math.min(window.innerWidth - 36, 1440);
+  canvas.height = CANVAS_HEIGHT;
+}
+
+// ─── Load & parse clip ─────────────────────────────────────────────────────
+
+async function loadClip(idx) {
+  if (idx < 0 || idx >= clips.length || loading) return;
+  loading    = true;
+  currentIdx = idx;
+  const fname = clips[idx];
+
+  updateHeader();
+  setStatus(`Loading ${fname}…`);
+
+  try {
+    const res = await fetch(GITHUB_RAW_BASE + fname);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const text = await res.text();
+    parseCSV(text);
+    setStatus('');
+    draw();
+  } catch (err) {
+    setStatus('⚠ Error loading clip: ' + err.message);
+  } finally {
+    loading = false;
+  }
+}
+
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  const n     = lines.length;
+  eegData = new Float32Array(n);
+  stimFlg = new Uint8Array(n);
+
+  let mn = Infinity, mx = -Infinity;
+  for (let i = 0; i < n; i++) {
+    const comma = lines[i].indexOf(',');
+    const v = parseFloat(lines[i].substring(0, comma));
+    eegData[i] = v;
+    stimFlg[i] = parseInt(lines[i].substring(comma + 1)) || 0;
+    if (v < mn) mn = v;
+    if (v > mx) mx = v;
+  }
+  dataMin = mn;
+  dataMax = mx;
+}
+
+// ─── Coordinate helpers ────────────────────────────────────────────────────
+
+function dataYToPx(val) {
+  const mid       = (dataMin + dataMax) / 2;
+  const halfRange = ((dataMax - dataMin) / gain / 2) || 1e-9;
+  const drawH     = canvas.height - PAD_TOP - PAD_BOTTOM;
+  return PAD_TOP + drawH * (1 - (val - (mid - halfRange)) / (halfRange * 2));
+}
+
+function pxToSampleIdx(px) {
+  return Math.max(0, Math.min(CHUNK_LEN - 1, Math.round(px / canvas.width * (CHUNK_LEN - 1))));
+}
+
+function sampleToPx(s) {
+  return s / (CHUNK_LEN - 1) * canvas.width;
+}
+
+// ─── Drawing ───────────────────────────────────────────────────────────────
+
+function draw() {
+  if (!eegData) return;
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  // Background
+  ctx.fillStyle = '#0b0b18';
+  ctx.fillRect(0, 0, W, H);
+
+  // Stim-on shading
+  ctx.fillStyle = 'rgba(50, 90, 150, 0.22)';
+  let inStim = false, stimStartSample = 0;
+  for (let i = 0; i <= CHUNK_LEN; i++) {
+    const on = (i < CHUNK_LEN) && (stimFlg[i] === 1);
+    if (!inStim && on) { inStim = true; stimStartSample = i; }
+    else if (inStim && !on) {
+      ctx.fillRect(sampleToPx(stimStartSample), PAD_TOP,
+                   sampleToPx(i) - sampleToPx(stimStartSample),
+                   H - PAD_TOP - PAD_BOTTOM);
+      inStim = false;
+    }
+  }
+
+  // Horizontal grid lines
+  const nLines = 5;
+  ctx.strokeStyle = '#1c1c2e';
+  ctx.lineWidth   = 1;
+  for (let i = 0; i <= nLines; i++) {
+    const y = PAD_TOP + (H - PAD_TOP - PAD_BOTTOM) * i / nLines;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+
+  // Zero line
+  const zeroY = dataYToPx(0);
+  if (zeroY > PAD_TOP && zeroY < H - PAD_BOTTOM) {
+    ctx.strokeStyle = '#2a2a44';
+    ctx.lineWidth   = 1;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath(); ctx.moveTo(0, zeroY); ctx.lineTo(W, zeroY); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Time axis ticks & labels
+  ctx.fillStyle  = '#444';
+  ctx.font       = '10px Courier New';
+  ctx.textAlign  = 'center';
+  for (let t = 0; t <= 10; t++) {
+    const x = t / 10 * W;
+    ctx.strokeStyle = '#252535';
+    ctx.lineWidth   = 1;
+    ctx.beginPath(); ctx.moveTo(x, H - PAD_BOTTOM); ctx.lineTo(x, H - PAD_BOTTOM + 5); ctx.stroke();
+    ctx.fillText(t + 's', x, H - 8);
+  }
+  ctx.textAlign = 'left';
+
+  // EEG waveform
+  ctx.strokeStyle = '#33aaff';
+  ctx.lineWidth   = 1.2;
+  ctx.beginPath();
+  for (let i = 0; i < CHUNK_LEN; i++) {
+    const x = sampleToPx(i);
+    const y = dataYToPx(eegData[i]);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // Spike markers
+  const anns = annotations[clips[currentIdx]] || [];
+  for (const sIdx of anns) {
+    const x = sampleToPx(sIdx);
+    const y = dataYToPx(eegData[sIdx]);
+
+    // Vertical tick line
+    ctx.strokeStyle = 'rgba(255, 75, 75, 0.8)';
+    ctx.lineWidth   = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x, y - 14); ctx.lineTo(x, y + 14);
+    ctx.stroke();
+
+    // Dot
+    ctx.fillStyle = '#ff4444';
+    ctx.beginPath();
+    ctx.arc(x, y, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Triangle pointer above
+    ctx.fillStyle = 'rgba(255, 80, 80, 0.6)';
+    ctx.beginPath();
+    ctx.moveTo(x - 5, y - 16);
+    ctx.lineTo(x + 5, y - 16);
+    ctx.lineTo(x, y - 10);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  updateAnnotationCount();
+}
+
+// ─── Click annotation ──────────────────────────────────────────────────────
+
+canvas.addEventListener('click', (e) => {
+  if (!eegData || loading) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const px   = (e.clientX - rect.left) * (canvas.width  / rect.width);
+  const py   = (e.clientY - rect.top)  * (canvas.height / rect.height);
+
+  const sIdx   = pxToSampleIdx(px);
+  const lineY  = dataYToPx(eegData[sIdx]);
+  const distY  = Math.abs(py - lineY);
+
+  const fname = clips[currentIdx];
+  if (!annotations[fname]) annotations[fname] = [];
+  const anns = annotations[fname];
+
+  // Check for nearby existing marker (deselect)
+  const nearIdx = anns.findIndex(s => Math.abs(sampleToPx(s) - px) <= DESELECT_DIST_PX);
+  if (nearIdx !== -1) {
+    anns.splice(nearIdx, 1);
+    saveAnnotations();
+    draw();
+    return;
+  }
+
+  // Only register if close enough to the waveform
+  if (distY > SNAP_THRESHOLD_PX) return;
+
+  anns.push(sIdx);
+  anns.sort((a, b) => a - b);
+  saveAnnotations();
+  draw();
+});
+
+// ─── Keyboard ──────────────────────────────────────────────────────────────
+
+document.addEventListener('keydown', (e) => {
+  switch (e.key) {
+    case 'ArrowRight': e.preventDefault(); goNext(); break;
+    case 'ArrowLeft':  e.preventDefault(); goPrev(); break;
+    case 'ArrowUp':    e.preventDefault(); setGain(gain * GAIN_STEP); break;
+    case 'ArrowDown':  e.preventDefault(); setGain(gain / GAIN_STEP); break;
+  }
+});
+
+// ─── Navigation ────────────────────────────────────────────────────────────
+
+function goNext() { if (currentIdx < clips.length - 1) loadClip(currentIdx + 1); }
+function goPrev() { if (currentIdx > 0)                loadClip(currentIdx - 1); }
+
+// ─── Gain ──────────────────────────────────────────────────────────────────
+
+function setGain(g) {
+  gain = Math.min(Math.max(g, 0.005), 5000);
+  document.getElementById('gain-label').textContent = 'Gain: ' + (gain < 10 ? gain.toFixed(1) : Math.round(gain)) + '×';
+  draw();
+}
+
+// ─── Persistence ───────────────────────────────────────────────────────────
+
+function saveAnnotations() {
+  try { localStorage.setItem('eeg_spike_annotations', JSON.stringify(annotations)); } catch(e) {}
+}
+
+function loadAnnotations() {
+  try {
+    const raw = localStorage.getItem('eeg_spike_annotations');
+    if (raw) annotations = JSON.parse(raw);
+  } catch(e) {}
+}
+
+// ─── Export ────────────────────────────────────────────────────────────────
+
+function exportCSV() {
+  const rows = ['clip_filename,clip_type,clip_number,start_sample,spike_sample_in_clip,spike_time_s'];
+  for (const [fname, anns] of Object.entries(annotations)) {
+    if (!anns || !anns.length) continue;
+    // fname format: clean_1_12345.csv or baseline_1_12345.csv
+    const base  = fname.replace('.csv', '');
+    const parts = base.split('_');
+    const type  = parts[0];
+    const num   = parts[1];
+    const start = parts[2];
+    for (const s of anns) {
+      rows.push(`${fname},${type},${num},${start},${s},${(s / SAMPLE_RATE).toFixed(4)}`);
+    }
+  }
+  const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+  const a    = document.createElement('a');
+  a.href     = URL.createObjectURL(blob);
+  a.download = 'spike_annotations.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+// ─── UI helpers ────────────────────────────────────────────────────────────
+
+function updateHeader() {
+  document.getElementById('clip-label').textContent = clips[currentIdx] || '';
+  document.getElementById('clip-info').textContent  = `Clip ${currentIdx + 1} / ${clips.length}`;
+  const pct = clips.length ? ((currentIdx + 1) / clips.length * 100) : 0;
+  document.getElementById('progress-fill').style.width = pct.toFixed(2) + '%';
+}
+
+function updateAnnotationCount() {
+  const n = (annotations[clips[currentIdx]] || []).length;
+  document.getElementById('ann-count').textContent = n + (n === 1 ? ' spike' : ' spikes');
+}
+
+function setStatus(msg) {
+  document.getElementById('status').textContent = msg;
+}
+
+// ─── Button wiring ─────────────────────────────────────────────────────────
+
+document.getElementById('btn-prev').onclick      = goPrev;
+document.getElementById('btn-next').onclick      = goNext;
+document.getElementById('btn-gain-up').onclick   = () => setGain(gain * GAIN_STEP);
+document.getElementById('btn-gain-down').onclick = () => setGain(gain / GAIN_STEP);
+document.getElementById('btn-gain-reset').onclick= () => setGain(1.0);
+document.getElementById('btn-export').onclick    = exportCSV;
+
+window.addEventListener('resize', () => { resizeCanvas(); draw(); });
+
+// ─── Go ────────────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
