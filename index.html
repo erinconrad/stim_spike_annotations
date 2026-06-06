@@ -279,11 +279,9 @@ const STUDY_PASSWORD = 'aim1';   // shared with annotators
 
 const ALLOWED_EMAILS = [                         // only these emails may sign in
   'erin.conrad2@pennmedicine.upenn.edu',
-  'Saurabh.R.Sinha@Pennmedicine.upenn.edu',
+  'saurabh.r.sinha@pennmedicine.upenn.edu',
 ];
 
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyGXZYT3ETu1vZorfYmqT5zbo1zNGEMptTP3Hqcrnqy-43kbAMlpTvmXxUr5ZBuTNjrYQ/exec';  // paste after deploying the Apps Script
-const SYNC_EVERY_N   = 5;                        // sync to Sheets every N clips reviewed
 // ═══════════════════════════════════════════════════════════════════════════
 
 const CHUNK_LEN        = 10000;
@@ -583,11 +581,6 @@ canvas.addEventListener('click', (e) => {
   reviewed[fname] = true;
   saveAnnotations();
   saveReviewed();
-  reviewedSinceLastSync++;
-  if (reviewedSinceLastSync >= SYNC_EVERY_N) {
-    reviewedSinceLastSync = 0;
-    syncToSheets();
-  }
   draw();
 });
 
@@ -618,31 +611,8 @@ function setGain(g) {
 
 // ─── Persistence ───────────────────────────────────────────────────────────
 
-let reviewedSinceLastSync = 0;
-
 function saveAnnotations() {
   try { localStorage.setItem(storageKey('annotations'), JSON.stringify(annotations)); } catch(e) {}
-}
-
-async function syncToSheets() {
-  if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === 'YOUR_APPS_SCRIPT_URL') return;
-  const nReviewed = Object.keys(reviewed).length;
-  const nSpikes   = Object.values(annotations).reduce((s, a) => s + a.length, 0);
-  try {
-    await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      body: JSON.stringify({
-        password:    STUDY_PASSWORD,
-        user:        currentUser,
-        clipsTotal:  clips.length,
-        clipsReviewed: nReviewed,
-        totalSpikes: nSpikes,
-        annotations: annotations,
-        reviewed:    reviewed,
-        timestamp:   new Date().toISOString(),
-      }),
-    });
-  } catch(e) { /* silently fail — localStorage is the source of truth */ }
 }
 
 function loadAnnotations() {
@@ -671,11 +641,6 @@ function markNoSpikes() {
   saveReviewed();
   saveAnnotations();
   draw();
-  reviewedSinceLastSync++;
-  if (reviewedSinceLastSync >= SYNC_EVERY_N) {
-    reviewedSinceLastSync = 0;
-    syncToSheets();
-  }
   goNext();
 }
 
@@ -740,7 +705,6 @@ document.getElementById('btn-no-spikes').onclick = markNoSpikes;
 document.getElementById('btn-export').onclick    = exportCSV;
 
 window.addEventListener('resize', () => { resizeCanvas(); draw(); });
-window.addEventListener('pagehide', () => { if (currentUser) syncToSheets(); });
 
 // ─── Go ────────────────────────────────────────────────────────────────────
 init();
