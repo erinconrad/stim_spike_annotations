@@ -153,8 +153,17 @@
     max-width: 380px;
     width: 100%;
   }
-  #signin-box h2 { font-size: 16px; color: #aac; margin-bottom: 10px; }
-  #signin-box p  { font-size: 12px; color: #666; margin-bottom: 24px; line-height: 1.6; }
+  #signin-box h2, .signin-box-inner h2 { font-size: 16px; color: #aac; margin-bottom: 10px; }
+  #signin-box p, .signin-box-inner p  { font-size: 12px; color: #666; margin-bottom: 24px; line-height: 1.6; }
+  .signin-box-inner {
+    background: #1e1e35;
+    border: 1px solid #3a3a55;
+    border-radius: 10px;
+    padding: 40px 44px;
+    text-align: center;
+    max-width: 380px;
+    width: 100%;
+  }
   #email-input {
     width: 100%;
     background: #12121f;
@@ -192,10 +201,20 @@
 
 <!-- Sign-in overlay -->
 <div id="signin-overlay">
-  <div id="signin-box">
+  <!-- Step 1: study password -->
+  <div id="signin-box" id="password-box">
+    <h2>EEG Spike Annotator</h2>
+    <p>Enter the study password to continue.</p>
+    <input type="password" id="password-input" placeholder="Study password" />
+    <div id="password-error" style="color:#f77;font-size:11px;margin-bottom:8px;display:none;">Incorrect password.</div>
+    <button id="btn-password">Continue →</button>
+  </div>
+  <!-- Step 2: email -->
+  <div id="email-box" style="display:none;" class="signin-box-inner">
     <h2>EEG Spike Annotator</h2>
     <p>Enter your email to begin or resume your session.<br>Your progress is saved automatically.</p>
     <input type="email" id="email-input" placeholder="your@email.com" autocomplete="email" />
+    <div id="email-error" style="color:#f77;font-size:11px;margin-bottom:8px;display:none;">That email is not on the study list.</div>
     <button id="btn-signin">Start →</button>
   </div>
 </div>
@@ -253,10 +272,18 @@
 <script>
 // ═══════════════════════════════════════════════════════════════════════════
 //  CONFIGURATION
-//  Set GITHUB_RAW_BASE to the raw URL of your clips folder, e.g.:
-//  'https://raw.githubusercontent.com/yourname/yourrepo/main/clips/'
 // ═══════════════════════════════════════════════════════════════════════════
 const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/erinconrad/stim_spike_annotations/main/clips/';
+
+const STUDY_PASSWORD = 'aim1';   // shared with annotators
+
+const ALLOWED_EMAILS = [                         // only these emails may sign in
+  'erin.conrad2@pennmedicine.upenn.edu',
+  'Saurabh.R.Sinha@Pennmedicine.upenn.edu',
+];
+
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyGXZYT3ETu1vZorfYmqT5zbo1zNGEMptTP3Hqcrnqy-43kbAMlpTvmXxUr5ZBuTNjrYQ/exec';  // paste after deploying the Apps Script
+const SYNC_EVERY_N   = 5;                        // sync to Sheets every N clips reviewed
 // ═══════════════════════════════════════════════════════════════════════════
 
 const CHUNK_LEN        = 10000;
@@ -295,12 +322,24 @@ function init() {
     document.getElementById('config-banner').classList.add('visible');
   }
 
-  // Auto sign-in if returning user
+  // Auto sign-in if returning user (password already verified this session)
   const savedUser = localStorage.getItem('eeg_current_user');
-  if (savedUser) {
+  if (savedUser && ALLOWED_EMAILS.includes(savedUser)) {
     signIn(savedUser);
   } else {
     document.getElementById('signin-overlay').style.display = 'flex';
+  }
+}
+
+function checkPassword() {
+  const val = document.getElementById('password-input').value;
+  if (val === STUDY_PASSWORD) {
+    document.getElementById('signin-box').style.display    = 'none';
+    document.getElementById('email-box').style.display     = 'block';
+    document.getElementById('password-error').style.display = 'none';
+    setTimeout(() => document.getElementById('email-input').focus(), 50);
+  } else {
+    document.getElementById('password-error').style.display = 'block';
   }
 }
 
@@ -327,6 +366,10 @@ async function startApp() {
 function signIn(email) {
   email = email.trim().toLowerCase();
   if (!email) return;
+  if (!ALLOWED_EMAILS.includes(email)) {
+    document.getElementById('email-error').style.display = 'block';
+    return;
+  }
   currentUser = email;
   localStorage.setItem('eeg_current_user', email);
   document.getElementById('signin-overlay').style.display = 'none';
@@ -540,6 +583,11 @@ canvas.addEventListener('click', (e) => {
   reviewed[fname] = true;
   saveAnnotations();
   saveReviewed();
+  reviewedSinceLastSync++;
+  if (reviewedSinceLastSync >= SYNC_EVERY_N) {
+    reviewedSinceLastSync = 0;
+    syncToSheets();
+  }
   draw();
 });
 
@@ -570,8 +618,31 @@ function setGain(g) {
 
 // ─── Persistence ───────────────────────────────────────────────────────────
 
+let reviewedSinceLastSync = 0;
+
 function saveAnnotations() {
   try { localStorage.setItem(storageKey('annotations'), JSON.stringify(annotations)); } catch(e) {}
+}
+
+async function syncToSheets() {
+  if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === 'YOUR_APPS_SCRIPT_URL') return;
+  const nReviewed = Object.keys(reviewed).length;
+  const nSpikes   = Object.values(annotations).reduce((s, a) => s + a.length, 0);
+  try {
+    await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        password:    STUDY_PASSWORD,
+        user:        currentUser,
+        clipsTotal:  clips.length,
+        clipsReviewed: nReviewed,
+        totalSpikes: nSpikes,
+        annotations: annotations,
+        reviewed:    reviewed,
+        timestamp:   new Date().toISOString(),
+      }),
+    });
+  } catch(e) { /* silently fail — localStorage is the source of truth */ }
 }
 
 function loadAnnotations() {
@@ -600,6 +671,11 @@ function markNoSpikes() {
   saveReviewed();
   saveAnnotations();
   draw();
+  reviewedSinceLastSync++;
+  if (reviewedSinceLastSync >= SYNC_EVERY_N) {
+    reviewedSinceLastSync = 0;
+    syncToSheets();
+  }
   goNext();
 }
 
@@ -650,6 +726,8 @@ function setStatus(msg) {
 
 // ─── Button wiring ─────────────────────────────────────────────────────────
 
+document.getElementById('btn-password').onclick = checkPassword;
+document.getElementById('password-input').addEventListener('keydown', e => { if (e.key === 'Enter') checkPassword(); });
 document.getElementById('btn-signin').onclick = () => signIn(document.getElementById('email-input').value);
 document.getElementById('email-input').addEventListener('keydown', e => { if (e.key === 'Enter') signIn(e.target.value); });
 
@@ -662,6 +740,7 @@ document.getElementById('btn-no-spikes').onclick = markNoSpikes;
 document.getElementById('btn-export').onclick    = exportCSV;
 
 window.addEventListener('resize', () => { resizeCanvas(); draw(); });
+window.addEventListener('pagehide', () => { if (currentUser) syncToSheets(); });
 
 // ─── Go ────────────────────────────────────────────────────────────────────
 init();
