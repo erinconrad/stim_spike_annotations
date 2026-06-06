@@ -39,7 +39,7 @@
   }
 
   #title { font-size: 15px; font-weight: bold; color: #aac; }
-  #clip-label { font-size: 12px; color: #55aaff; margin-left: 12px; }
+  #clip-label { display: none; }
   #clip-info { font-size: 12px; color: #666; }
 
   #progress-track {
@@ -480,17 +480,12 @@ function loadAnnotations() {
 // ─── Export ────────────────────────────────────────────────────────────────
 
 function exportCSV() {
-  const rows = ['clip_filename,clip_type,clip_number,start_sample,spike_sample_in_clip,spike_time_s'];
+  const rows = ['clip_name,spike_sample_in_clip,spike_time_s'];
   for (const [fname, anns] of Object.entries(annotations)) {
     if (!anns || !anns.length) continue;
-    // fname format: clean_1_12345.csv or baseline_1_12345.csv
-    const base  = fname.replace('.csv', '');
-    const parts = base.split('_');
-    const type  = parts[0];
-    const num   = parts[1];
-    const start = parts[2];
+    const clipName = fname.replace('.csv', '');
     for (const s of anns) {
-      rows.push(`${fname},${type},${num},${start},${s},${(s / SAMPLE_RATE).toFixed(4)}`);
+      rows.push(`${clipName},${s},${(s / SAMPLE_RATE).toFixed(4)}`);
     }
   }
   const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
