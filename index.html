@@ -173,6 +173,7 @@
   <button class="btn" id="btn-gain-reset">Reset</button>
   <div id="spacer"></div>
   <span id="ann-count">0 spikes</span>
+  <button class="btn" id="btn-no-spikes">✓ No Spikes</button>
   <button class="btn primary" id="btn-export">⬇ Export CSV</button>
 </div>
 
@@ -181,7 +182,8 @@
   <kbd>←</kbd><kbd>→</kbd> navigate &nbsp;|&nbsp;
   <kbd>↑</kbd><kbd>↓</kbd> gain &nbsp;|&nbsp;
   click waveform to mark spike &nbsp;|&nbsp;
-  click existing marker to remove
+  click existing marker to remove &nbsp;|&nbsp;
+  <kbd>N</kbd> no spikes
 </div>
 
 <script>
@@ -210,6 +212,7 @@ let currentIdx = 0;
 let eegData    = null;   // Float32Array
 let stimFlg    = null;   // Uint8Array
 let annotations = {};    // { filename: [sampleIdx, ...] }
+let reviewed    = {};    // { filename: true } — clips confirmed done (with or without spikes)
 let gain       = 1.0;
 let dataMin    = 0;
 let dataMax    = 1;
@@ -224,6 +227,7 @@ async function init() {
   }
 
   loadAnnotations();
+  loadReviewed();
   resizeCanvas();
 
   setStatus('Fetching manifest.json…');
@@ -436,7 +440,9 @@ canvas.addEventListener('click', (e) => {
 
   anns.push(sIdx);
   anns.sort((a, b) => a - b);
+  reviewed[fname] = true;
   saveAnnotations();
+  saveReviewed();
   draw();
 });
 
@@ -448,6 +454,7 @@ document.addEventListener('keydown', (e) => {
     case 'ArrowLeft':  e.preventDefault(); goPrev(); break;
     case 'ArrowUp':    e.preventDefault(); setGain(gain * GAIN_STEP); break;
     case 'ArrowDown':  e.preventDefault(); setGain(gain / GAIN_STEP); break;
+    case 'n': case 'N': markNoSpikes(); break;
   }
 });
 
@@ -477,15 +484,42 @@ function loadAnnotations() {
   } catch(e) {}
 }
 
+function saveReviewed() {
+  try { localStorage.setItem('eeg_reviewed', JSON.stringify(reviewed)); } catch(e) {}
+}
+
+function loadReviewed() {
+  try {
+    const raw = localStorage.getItem('eeg_reviewed');
+    if (raw) reviewed = JSON.parse(raw);
+  } catch(e) {}
+}
+
+function markNoSpikes() {
+  if (!clips.length) return;
+  const fname = clips[currentIdx];
+  reviewed[fname] = true;
+  if (!annotations[fname]) annotations[fname] = [];
+  saveReviewed();
+  saveAnnotations();
+  draw();
+  goNext();
+}
+
 // ─── Export ────────────────────────────────────────────────────────────────
 
 function exportCSV() {
   const rows = ['clip_name,spike_sample_in_clip,spike_time_s'];
-  for (const [fname, anns] of Object.entries(annotations)) {
-    if (!anns || !anns.length) continue;
+  // Include all reviewed clips; no-spike clips get a single row with empty spike fields
+  for (const fname of Object.keys(reviewed)) {
     const clipName = fname.replace('.csv', '');
-    for (const s of anns) {
-      rows.push(`${clipName},${s},${(s / SAMPLE_RATE).toFixed(4)}`);
+    const anns = annotations[fname] || [];
+    if (anns.length > 0) {
+      for (const s of anns) {
+        rows.push(`${clipName},${s},${(s / SAMPLE_RATE).toFixed(4)}`);
+      }
+    } else {
+      rows.push(`${clipName},,`);
     }
   }
   const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
@@ -501,8 +535,10 @@ function exportCSV() {
 
 function updateHeader() {
   document.getElementById('clip-label').textContent = clips[currentIdx] || '';
-  document.getElementById('clip-info').textContent  = `Clip ${currentIdx + 1} / ${clips.length}`;
-  const pct = clips.length ? ((currentIdx + 1) / clips.length * 100) : 0;
+  const nReviewed = Object.keys(reviewed).length;
+  document.getElementById('clip-info').textContent =
+    `Clip ${currentIdx + 1} / ${clips.length} — ${nReviewed} reviewed`;
+  const pct = clips.length ? (nReviewed / clips.length * 100) : 0;
   document.getElementById('progress-fill').style.width = pct.toFixed(2) + '%';
 }
 
@@ -522,6 +558,7 @@ document.getElementById('btn-next').onclick      = goNext;
 document.getElementById('btn-gain-up').onclick   = () => setGain(gain * GAIN_STEP);
 document.getElementById('btn-gain-down').onclick = () => setGain(gain / GAIN_STEP);
 document.getElementById('btn-gain-reset').onclick= () => setGain(1.0);
+document.getElementById('btn-no-spikes').onclick = markNoSpikes;
 document.getElementById('btn-export').onclick    = exportCSV;
 
 window.addEventListener('resize', () => { resizeCanvas(); draw(); });
