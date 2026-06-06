@@ -432,7 +432,7 @@ canvas.addEventListener('click', (e) => {
   }
 
   // Only register if close enough to the waveform
-  if (distY > SNAP_THRESHOLD_PX) return;
+  if (distY > SNAP_THRESH_PX) return;
 
   anns.push(sIdx);
   anns.sort((a, b) => a - b);
