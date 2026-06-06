@@ -249,6 +249,7 @@
 <div id="controls">
   <button class="btn" id="btn-prev">◀ Prev</button>
   <button class="btn" id="btn-next">Next ▶</button>
+  <button class="btn" id="btn-no-spikes">✓ No Spikes</button>
   <div id="spacer"></div>
   <span id="gain-label">Gain: 1.0×</span>
   <button class="btn" id="btn-gain-up">Gain +</button>
@@ -256,7 +257,6 @@
   <button class="btn" id="btn-gain-reset">Reset</button>
   <div id="spacer"></div>
   <span id="ann-count">0 spikes</span>
-  <button class="btn" id="btn-no-spikes">✓ No Spikes</button>
   <button class="btn primary" id="btn-export">⬇ Export CSV</button>
 </div>
 
@@ -598,8 +598,16 @@ document.addEventListener('keydown', (e) => {
 
 // ─── Navigation ────────────────────────────────────────────────────────────
 
-function goNext() { if (currentIdx < clips.length - 1) loadClip(currentIdx + 1); }
-function goPrev() { if (currentIdx > 0)                loadClip(currentIdx - 1); }
+function goNext() {
+  if (currentIdx >= clips.length - 1) return;
+  const fname = clips[currentIdx];
+  if (!reviewed[fname]) {
+    const ok = confirm('You haven\'t marked any spikes or clicked "No Spikes" for this clip. Move on anyway?');
+    if (!ok) return;
+  }
+  loadClip(currentIdx + 1);
+}
+function goPrev() { if (currentIdx > 0) loadClip(currentIdx - 1); }
 
 // ─── Gain ──────────────────────────────────────────────────────────────────
 
