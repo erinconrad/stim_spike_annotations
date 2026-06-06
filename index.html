@@ -133,9 +133,72 @@
     padding: 1px 4px;
     font-family: inherit;
   }
+
+  /* ── Sign-in overlay ── */
+  #signin-overlay {
+    position: fixed;
+    inset: 0;
+    background: #12121f;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+  }
+  #signin-box {
+    background: #1e1e35;
+    border: 1px solid #3a3a55;
+    border-radius: 10px;
+    padding: 40px 44px;
+    text-align: center;
+    max-width: 380px;
+    width: 100%;
+  }
+  #signin-box h2 { font-size: 16px; color: #aac; margin-bottom: 10px; }
+  #signin-box p  { font-size: 12px; color: #666; margin-bottom: 24px; line-height: 1.6; }
+  #email-input {
+    width: 100%;
+    background: #12121f;
+    border: 1px solid #3a3a55;
+    border-radius: 5px;
+    color: #dde;
+    font-family: inherit;
+    font-size: 13px;
+    padding: 9px 12px;
+    margin-bottom: 14px;
+    outline: none;
+  }
+  #email-input:focus { border-color: #55aaff; }
+  #btn-signin {
+    width: 100%;
+    background: #1a3a5a;
+    border: 1px solid #2a5a8a;
+    border-radius: 5px;
+    color: #8cf;
+    font-family: inherit;
+    font-size: 13px;
+    padding: 10px;
+    cursor: pointer;
+  }
+  #btn-signin:hover { background: #1e4a70; }
+  #user-badge {
+    font-size: 11px;
+    color: #555;
+    margin-left: 10px;
+  }
+  #user-badge span { color: #7af; }
 </style>
 </head>
 <body>
+
+<!-- Sign-in overlay -->
+<div id="signin-overlay">
+  <div id="signin-box">
+    <h2>EEG Spike Annotator</h2>
+    <p>Enter your email to begin or resume your session.<br>Your progress is saved automatically.</p>
+    <input type="email" id="email-input" placeholder="your@email.com" autocomplete="email" />
+    <button id="btn-signin">Start →</button>
+  </div>
+</div>
 
 <div id="config-banner">
   ⚠️ Set <code>GITHUB_RAW_BASE</code> at the top of the &lt;script&gt; to your GitHub raw URL before deploying.
@@ -145,6 +208,7 @@
   <div>
     <span id="title">EEG Spike Annotator</span>
     <span id="clip-label"></span>
+    <span id="user-badge"></span>
   </div>
   <div id="clip-info">Loading…</div>
 </div>
@@ -207,25 +271,40 @@ const GAIN_STEP        = 1.6;
 const canvas = document.getElementById('eeg');
 const ctx    = canvas.getContext('2d');
 
-let clips      = [];
-let currentIdx = 0;
-let eegData    = null;   // Float32Array
-let stimFlg    = null;   // Uint8Array
-let annotations = {};    // { filename: [sampleIdx, ...] }
-let reviewed    = {};    // { filename: true } — clips confirmed done (with or without spikes)
-let gain       = 1.0;
-let dataMin    = 0;
-let dataMax    = 1;
-let loading    = false;
+let clips       = [];
+let currentIdx  = 0;
+let eegData     = null;   // Float32Array
+let stimFlg     = null;   // Uint8Array
+let annotations = {};     // { filename: [sampleIdx, ...] }
+let reviewed    = {};     // { filename: true }
+let gain        = 1.0;
+let dataMin     = 0;
+let dataMax     = 1;
+let loading     = false;
+let currentUser = null;   // email string
+
+function storageKey(type) {
+  return `eeg_${type}_${currentUser}`;
+}
 
 // ─── Initialization ────────────────────────────────────────────────────────
 
-async function init() {
+function init() {
   const isPlaceholder = GITHUB_RAW_BASE.includes('YOUR_USER');
   if (isPlaceholder) {
     document.getElementById('config-banner').classList.add('visible');
   }
 
+  // Auto sign-in if returning user
+  const savedUser = localStorage.getItem('eeg_current_user');
+  if (savedUser) {
+    signIn(savedUser);
+  } else {
+    document.getElementById('signin-overlay').style.display = 'flex';
+  }
+}
+
+async function startApp() {
   loadAnnotations();
   loadReviewed();
   resizeCanvas();
@@ -237,10 +316,28 @@ async function init() {
     clips = await res.json();
     if (!Array.isArray(clips) || clips.length === 0) throw new Error('manifest.json is empty or malformed');
     setStatus(`${clips.length} clips loaded.`);
-    await loadClip(0);
+    // Resume at first unreviewed clip
+    const firstUnreviewed = clips.findIndex(f => !reviewed[f]);
+    await loadClip(firstUnreviewed === -1 ? 0 : firstUnreviewed);
   } catch (err) {
     setStatus('⚠ ' + err.message);
   }
+}
+
+function signIn(email) {
+  email = email.trim().toLowerCase();
+  if (!email) return;
+  currentUser = email;
+  localStorage.setItem('eeg_current_user', email);
+  document.getElementById('signin-overlay').style.display = 'none';
+  document.getElementById('user-badge').innerHTML =
+    `Signed in as <span>${email}</span> — <a href="#" id="btn-signout" style="color:#555;text-decoration:none;">sign out</a>`;
+  document.getElementById('btn-signout').onclick = (e) => {
+    e.preventDefault();
+    localStorage.removeItem('eeg_current_user');
+    location.reload();
+  };
+  startApp();
 }
 
 function resizeCanvas() {
@@ -474,23 +571,23 @@ function setGain(g) {
 // ─── Persistence ───────────────────────────────────────────────────────────
 
 function saveAnnotations() {
-  try { localStorage.setItem('eeg_spike_annotations', JSON.stringify(annotations)); } catch(e) {}
+  try { localStorage.setItem(storageKey('annotations'), JSON.stringify(annotations)); } catch(e) {}
 }
 
 function loadAnnotations() {
   try {
-    const raw = localStorage.getItem('eeg_spike_annotations');
+    const raw = localStorage.getItem(storageKey('annotations'));
     if (raw) annotations = JSON.parse(raw);
   } catch(e) {}
 }
 
 function saveReviewed() {
-  try { localStorage.setItem('eeg_reviewed', JSON.stringify(reviewed)); } catch(e) {}
+  try { localStorage.setItem(storageKey('reviewed'), JSON.stringify(reviewed)); } catch(e) {}
 }
 
 function loadReviewed() {
   try {
-    const raw = localStorage.getItem('eeg_reviewed');
+    const raw = localStorage.getItem(storageKey('reviewed'));
     if (raw) reviewed = JSON.parse(raw);
   } catch(e) {}
 }
@@ -552,6 +649,9 @@ function setStatus(msg) {
 }
 
 // ─── Button wiring ─────────────────────────────────────────────────────────
+
+document.getElementById('btn-signin').onclick = () => signIn(document.getElementById('email-input').value);
+document.getElementById('email-input').addEventListener('keydown', e => { if (e.key === 'Enter') signIn(e.target.value); });
 
 document.getElementById('btn-prev').onclick      = goPrev;
 document.getElementById('btn-next').onclick      = goNext;
