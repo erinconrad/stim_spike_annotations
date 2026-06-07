@@ -282,6 +282,8 @@ const ALLOWED_EMAILS = [                         // only these emails may sign i
   'saurabh.r.sinha@pennmedicine.upenn.edu',
 ];
 
+const SYNC_EVERY_N  = 5;   // save to server every N clips reviewed
+
 // ═══════════════════════════════════════════════════════════════════════════
 
 const CHUNK_LEN        = 10000;
@@ -581,6 +583,7 @@ canvas.addEventListener('click', (e) => {
   reviewed[fname] = true;
   saveAnnotations();
   saveReviewed();
+  maybeSyncToServer();
   draw();
 });
 
@@ -619,8 +622,39 @@ function setGain(g) {
 
 // ─── Persistence ───────────────────────────────────────────────────────────
 
+let reviewedSinceLastSync = 0;
+
 function saveAnnotations() {
   try { localStorage.setItem(storageKey('annotations'), JSON.stringify(annotations)); } catch(e) {}
+}
+
+async function syncToServer() {
+  const nReviewed = Object.keys(reviewed).length;
+  const nSpikes   = Object.values(annotations).reduce((s, a) => s + a.length, 0);
+  try {
+    await fetch('/api/save-annotation', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        password:      STUDY_PASSWORD,
+        user:          currentUser,
+        clipsTotal:    clips.length,
+        clipsReviewed: nReviewed,
+        totalSpikes:   nSpikes,
+        annotations,
+        reviewed,
+        timestamp:     new Date().toISOString(),
+      }),
+    });
+  } catch(e) { /* silently fail — localStorage is source of truth */ }
+}
+
+function maybeSyncToServer() {
+  reviewedSinceLastSync++;
+  if (reviewedSinceLastSync >= SYNC_EVERY_N) {
+    reviewedSinceLastSync = 0;
+    syncToServer();
+  }
 }
 
 function loadAnnotations() {
@@ -648,6 +682,7 @@ function markNoSpikes() {
   if (!annotations[fname]) annotations[fname] = [];
   saveReviewed();
   saveAnnotations();
+  maybeSyncToServer();
   draw();
   goNext();
 }
@@ -713,6 +748,7 @@ document.getElementById('btn-no-spikes').onclick = markNoSpikes;
 document.getElementById('btn-export').onclick    = exportCSV;
 
 window.addEventListener('resize', () => { resizeCanvas(); draw(); });
+window.addEventListener('pagehide', () => { if (currentUser) syncToServer(); });
 
 // ─── Go ────────────────────────────────────────────────────────────────────
 init();
