@@ -1,6 +1,6 @@
 import { getStore } from '@netlify/blobs';
 
-export default async (req) => {
+export default async (req, context) => {
   if (req.method !== 'POST') {
     return Response.json({ error: 'Method not allowed' }, { status: 405 });
   }
@@ -24,7 +24,7 @@ export default async (req) => {
   }
 
   // Write to Netlify Blobs — one entry per user, overwritten each sync
-  const store = getStore('annotations');
+  const store = getStore({ name: 'annotations', context });
   await store.setJSON(data.user, { ...data, savedAt: new Date().toISOString() });
 
   return Response.json({ success: true });

@@ -5,7 +5,7 @@ import { getStore } from '@netlify/blobs';
 //
 // To download as CSV instead, add &format=csv to the URL.
 
-export default async (req) => {
+export default async (req, context) => {
   const url      = new URL(req.url);
   const password = url.searchParams.get('password');
 
@@ -13,7 +13,7 @@ export default async (req) => {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const store        = getStore('annotations');
+  const store        = getStore({ name: 'annotations', context });
   const { blobs }    = await store.list();
   const results      = [];
 
