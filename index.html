@@ -242,7 +242,6 @@
 
 <div id="legend">
   <div class="leg"><div class="leg-swatch" style="background:#4af;border-radius:2px;height:3px;width:18px;"></div> EEG</div>
-  <div class="leg"><div class="leg-swatch" style="background:rgba(60,100,160,0.5);border-radius:2px;"></div> Stim ON</div>
   <div class="leg"><div class="leg-swatch" style="background:#ff5555"></div> Spike marker</div>
 </div>
 
@@ -290,7 +289,8 @@ const CHUNK_LEN        = 10000;
 const SAMPLE_RATE      = 1000;
 const CANVAS_HEIGHT    = 420;
 const PAD_TOP          = 24;
-const PAD_BOTTOM       = 32;
+const PAD_BOTTOM       = 36;
+const PAD_LEFT         = 62;
 const SNAP_THRESH_PX   = 28;   // max vertical pixels from line to register click
 const DESELECT_DIST_PX = 10;   // horizontal pixels near existing marker to deselect
 const GAIN_STEP        = 1.6;
@@ -442,11 +442,12 @@ function dataYToPx(val) {
 }
 
 function pxToSampleIdx(px) {
-  return Math.max(0, Math.min(CHUNK_LEN - 1, Math.round(px / canvas.width * (CHUNK_LEN - 1))));
+  const plotW = canvas.width - PAD_LEFT;
+  return Math.max(0, Math.min(CHUNK_LEN - 1, Math.round((px - PAD_LEFT) / plotW * (CHUNK_LEN - 1))));
 }
 
 function sampleToPx(s) {
-  return s / (CHUNK_LEN - 1) * canvas.width;
+  return PAD_LEFT + s / (CHUNK_LEN - 1) * (canvas.width - PAD_LEFT);
 }
 
 // ─── Drawing ───────────────────────────────────────────────────────────────
@@ -460,28 +461,55 @@ function draw() {
   ctx.fillStyle = '#0b0b18';
   ctx.fillRect(0, 0, W, H);
 
-  // Stim-on shading
-  ctx.fillStyle = 'rgba(50, 90, 150, 0.22)';
-  let inStim = false, stimStartSample = 0;
-  for (let i = 0; i <= CHUNK_LEN; i++) {
-    const on = (i < CHUNK_LEN) && (stimFlg[i] === 1);
-    if (!inStim && on) { inStim = true; stimStartSample = i; }
-    else if (inStim && !on) {
-      ctx.fillRect(sampleToPx(stimStartSample), PAD_TOP,
-                   sampleToPx(i) - sampleToPx(stimStartSample),
-                   H - PAD_TOP - PAD_BOTTOM);
-      inStim = false;
-    }
+  // ── Y-axis ──
+  const mid       = (dataMin + dataMax) / 2;
+  const halfRange = ((dataMax - dataMin) / gain / 2) || 1e-9;
+  const visMin    = mid - halfRange;
+  const visMax    = mid + halfRange;
+  const plotH     = H - PAD_TOP - PAD_BOTTOM;
+  const plotW     = W - PAD_LEFT;
+
+  // Nice tick spacing
+  function niceStep(range) {
+    const rough = range / 5;
+    const mag   = Math.pow(10, Math.floor(Math.log10(Math.abs(rough) || 1)));
+    const norm  = rough / mag;
+    return (norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10) * mag;
+  }
+  const step      = niceStep(visMax - visMin);
+  const tickStart = Math.ceil(visMin / step) * step;
+
+  ctx.font      = '10px Courier New';
+  ctx.textAlign = 'right';
+
+  for (let v = tickStart; v <= visMax + step * 0.01; v += step) {
+    const y = dataYToPx(v);
+    if (y < PAD_TOP - 1 || y > H - PAD_BOTTOM + 1) continue;
+
+    // Grid line across plot area
+    ctx.strokeStyle = '#1c1c2e';
+    ctx.lineWidth   = 1;
+    ctx.beginPath(); ctx.moveTo(PAD_LEFT, y); ctx.lineTo(W, y); ctx.stroke();
+
+    // Tick mark
+    ctx.strokeStyle = '#444';
+    ctx.beginPath(); ctx.moveTo(PAD_LEFT - 4, y); ctx.lineTo(PAD_LEFT, y); ctx.stroke();
+
+    // Label
+    ctx.fillStyle = '#555';
+    const label   = Math.abs(v) >= 1000 ? (v/1000).toFixed(1) + 'k' : Math.round(v).toString();
+    ctx.fillText(label, PAD_LEFT - 6, y + 3);
   }
 
-  // Horizontal grid lines
-  const nLines = 5;
-  ctx.strokeStyle = '#1c1c2e';
-  ctx.lineWidth   = 1;
-  for (let i = 0; i <= nLines; i++) {
-    const y = PAD_TOP + (H - PAD_TOP - PAD_BOTTOM) * i / nLines;
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
-  }
+  // Y-axis label (µV)
+  ctx.save();
+  ctx.translate(10, PAD_TOP + plotH / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textAlign  = 'center';
+  ctx.fillStyle  = '#555';
+  ctx.font       = '10px Courier New';
+  ctx.fillText('µV', 0, 0);
+  ctx.restore();
 
   // Zero line
   const zeroY = dataYToPx(0);
@@ -489,21 +517,25 @@ function draw() {
     ctx.strokeStyle = '#2a2a44';
     ctx.lineWidth   = 1;
     ctx.setLineDash([5, 5]);
-    ctx.beginPath(); ctx.moveTo(0, zeroY); ctx.lineTo(W, zeroY); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(PAD_LEFT, zeroY); ctx.lineTo(W, zeroY); ctx.stroke();
     ctx.setLineDash([]);
   }
 
-  // Time axis ticks & labels
-  ctx.fillStyle  = '#444';
-  ctx.font       = '10px Courier New';
-  ctx.textAlign  = 'center';
+  // ── X-axis ticks & labels ──
+  ctx.fillStyle = '#444';
+  ctx.font      = '10px Courier New';
+  ctx.textAlign = 'center';
   for (let t = 0; t <= 10; t++) {
-    const x = t / 10 * W;
-    ctx.strokeStyle = '#252535';
+    const x = PAD_LEFT + t / 10 * plotW;
+    ctx.strokeStyle = '#333';
     ctx.lineWidth   = 1;
-    ctx.beginPath(); ctx.moveTo(x, H - PAD_BOTTOM); ctx.lineTo(x, H - PAD_BOTTOM + 5); ctx.stroke();
-    ctx.fillText(t + 's', x, H - 8);
+    ctx.beginPath(); ctx.moveTo(x, H - PAD_BOTTOM); ctx.lineTo(x, H - PAD_BOTTOM + 4); ctx.stroke();
+    ctx.fillStyle = '#555';
+    ctx.fillText(t, x, H - PAD_BOTTOM + 14);
   }
+  // X-axis label
+  ctx.fillStyle = '#444';
+  ctx.fillText('Time (s)', PAD_LEFT + plotW / 2, H - 4);
   ctx.textAlign = 'left';
 
   // EEG waveform
