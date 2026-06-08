@@ -1,6 +1,6 @@
-import { list } from '@vercel/blob';
+const { list } = require('@vercel/blob');
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   if (req.query.password !== process.env.ADMIN_PASSWORD) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
@@ -42,4 +42,4 @@ export default async function handler(req, res) {
   }
 
   return res.status(200).json(results);
-}
+};
