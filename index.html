@@ -290,10 +290,11 @@ const SAMPLE_RATE      = 1000;
 const CANVAS_HEIGHT    = 420;
 const PAD_TOP          = 24;
 const PAD_BOTTOM       = 36;
-const PAD_LEFT         = 62;
+const PAD_LEFT         = 72;
 const SNAP_THRESH_PX   = 28;   // max vertical pixels from line to register click
 const DESELECT_DIST_PX = 10;   // horizontal pixels near existing marker to deselect
 const GAIN_STEP        = 1.6;
+const DEFAULT_HALF_UV  = 1500;  // default Y-axis half-range in µV (shows ±1500 µV at gain=1)
 
 const canvas = document.getElementById('eeg');
 const ctx    = canvas.getContext('2d');
@@ -435,10 +436,9 @@ function parseCSV(text) {
 // ─── Coordinate helpers ────────────────────────────────────────────────────
 
 function dataYToPx(val) {
-  const mid       = (dataMin + dataMax) / 2;
-  const halfRange = ((dataMax - dataMin) / gain / 2) || 1e-9;
+  const halfRange = DEFAULT_HALF_UV / gain;
   const drawH     = canvas.height - PAD_TOP - PAD_BOTTOM;
-  return PAD_TOP + drawH * (1 - (val - (mid - halfRange)) / (halfRange * 2));
+  return PAD_TOP + drawH * (1 - (val + halfRange) / (halfRange * 2));
 }
 
 function pxToSampleIdx(px) {
@@ -462,10 +462,9 @@ function draw() {
   ctx.fillRect(0, 0, W, H);
 
   // ── Y-axis ──
-  const mid       = (dataMin + dataMax) / 2;
-  const halfRange = ((dataMax - dataMin) / gain / 2) || 1e-9;
-  const visMin    = mid - halfRange;
-  const visMax    = mid + halfRange;
+  const halfRange = DEFAULT_HALF_UV / gain;
+  const visMin    = -halfRange;
+  const visMax    =  halfRange;
   const plotH     = H - PAD_TOP - PAD_BOTTOM;
   const plotW     = W - PAD_LEFT;
 
@@ -497,7 +496,7 @@ function draw() {
 
     // Label
     ctx.fillStyle = '#555';
-    const label   = Math.abs(v) >= 1000 ? (v/1000).toFixed(1) + 'k' : Math.round(v).toString();
+    const label   = Math.round(v).toString();
     ctx.fillText(label, PAD_LEFT - 6, y + 3);
   }
 
