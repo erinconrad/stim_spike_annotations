@@ -8,8 +8,8 @@
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
-    background: #12121f;
-    color: #dde;
+    background: #ffffff;
+    color: #111;
     font-family: 'Courier New', monospace;
     padding: 16px;
     user-select: none;
@@ -17,17 +17,17 @@
   }
 
   #config-banner {
-    background: #2a1505;
-    border: 1px solid #a64;
+    background: #fff8e6;
+    border: 1px solid #e6a800;
     border-radius: 6px;
     padding: 10px 14px;
     margin-bottom: 12px;
     font-size: 12px;
-    color: #fca;
+    color: #7a4800;
     display: none;
   }
   #config-banner.visible { display: block; }
-  #config-banner code { background: #3a2010; padding: 1px 4px; border-radius: 3px; }
+  #config-banner code { background: #ffedb3; padding: 1px 4px; border-radius: 3px; }
 
   #header {
     display: flex;
@@ -38,20 +38,20 @@
     flex-wrap: wrap;
   }
 
-  #title { font-size: 15px; font-weight: bold; color: #aac; }
+  #title { font-size: 15px; font-weight: bold; color: #111; }
   #clip-label { display: none; }
-  #clip-info { font-size: 12px; color: #666; }
+  #clip-info { font-size: 12px; color: #555; }
 
   #progress-track {
     height: 3px;
-    background: #222;
+    background: #ddd;
     border-radius: 2px;
     margin-bottom: 10px;
     overflow: hidden;
   }
   #progress-fill {
     height: 100%;
-    background: #3af;
+    background: #0066cc;
     border-radius: 2px;
     transition: width 0.15s;
     width: 0%;
@@ -59,8 +59,8 @@
 
   #canvas-wrap {
     position: relative;
-    background: #0b0b18;
-    border: 1px solid #2a2a3a;
+    background: #ffffff;
+    border: 1px solid #ccc;
     border-radius: 6px;
     overflow: hidden;
     cursor: crosshair;
@@ -92,9 +92,9 @@
   }
 
   .btn {
-    background: #1e1e35;
-    color: #ccd;
-    border: 1px solid #3a3a55;
+    background: #f0f0f0;
+    color: #222;
+    border: 1px solid #bbb;
     padding: 7px 14px;
     border-radius: 5px;
     cursor: pointer;
@@ -103,92 +103,95 @@
     transition: background 0.1s;
     white-space: nowrap;
   }
-  .btn:hover { background: #2a2a4a; }
-  .btn:active { background: #3a3a6a; }
+  .btn:hover { background: #e0e0e0; }
+  .btn:active { background: #ccc; }
   .btn:disabled { opacity: 0.35; cursor: default; }
-  .btn.primary { background: #1a3a5a; border-color: #2a5a8a; color: #8cf; }
-  .btn.primary:hover { background: #1e4a70; }
+  .btn.primary { background: #0055aa; border-color: #0044aa; color: #fff; }
+  .btn.primary:hover { background: #0066cc; }
 
   #spacer { flex: 1; }
 
-  #gain-label { font-size: 12px; color: #7af; min-width: 80px; text-align: right; }
-  #ann-count  { font-size: 12px; color: #fa8; min-width: 70px; text-align: right; }
+  #gain-label { font-size: 12px; color: #333; min-width: 80px; text-align: right; }
+  #ann-count  { font-size: 12px; color: #333; min-width: 70px; text-align: right; }
 
   #status {
     font-size: 11px;
-    color: #555;
+    color: #666;
     margin-top: 8px;
     min-height: 16px;
   }
 
   #keyboard-hint {
     font-size: 11px;
-    color: #444;
+    color: #666;
     margin-top: 6px;
   }
   #keyboard-hint kbd {
-    background: #222;
-    border: 1px solid #444;
+    background: #f0f0f0;
+    border: 1px solid #bbb;
     border-radius: 3px;
     padding: 1px 4px;
     font-family: inherit;
+    color: #222;
   }
 
   /* ── Sign-in overlay ── */
   #signin-overlay {
     position: fixed;
     inset: 0;
-    background: #12121f;
+    background: #fff;
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 200;
   }
   #signin-box {
-    background: #1e1e35;
-    border: 1px solid #3a3a55;
+    background: #fff;
+    border: 1px solid #ccc;
     border-radius: 10px;
     padding: 40px 44px;
     text-align: center;
     max-width: 380px;
     width: 100%;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.1);
   }
-  #signin-box h2, .signin-box-inner h2 { font-size: 16px; color: #aac; margin-bottom: 10px; }
-  #signin-box p, .signin-box-inner p  { font-size: 12px; color: #666; margin-bottom: 24px; line-height: 1.6; }
+  #signin-box h2, .signin-box-inner h2 { font-size: 16px; color: #111; margin-bottom: 10px; }
+  #signin-box p, .signin-box-inner p  { font-size: 12px; color: #555; margin-bottom: 24px; line-height: 1.6; }
   .signin-box-inner {
-    background: #1e1e35;
-    border: 1px solid #3a3a55;
+    background: #fff;
+    border: 1px solid #ccc;
     border-radius: 10px;
     padding: 40px 44px;
     text-align: center;
     max-width: 380px;
     width: 100%;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.1);
   }
   #email-input {
     width: 100%;
-    background: #12121f;
-    border: 1px solid #3a3a55;
+    background: #fff;
+    border: 1px solid #bbb;
     border-radius: 5px;
-    color: #dde;
+    color: #111;
     font-family: inherit;
     font-size: 13px;
     padding: 9px 12px;
     margin-bottom: 14px;
     outline: none;
   }
-  #email-input:focus { border-color: #55aaff; }
+  #email-input:focus { border-color: #0066cc; }
   #btn-signin {
     width: 100%;
-    background: #1a3a5a;
-    border: 1px solid #2a5a8a;
+    background: #0055aa;
+    border: 1px solid #0044aa;
     border-radius: 5px;
-    color: #8cf;
+    color: #fff;
     font-family: inherit;
     font-size: 13px;
     padding: 10px;
     cursor: pointer;
   }
-  #btn-signin:hover { background: #1e4a70; }
+  #btn-signin:hover { background: #0066cc; }
   #user-badge {
     font-size: 11px;
     color: #555;
@@ -241,8 +244,8 @@
 </div>
 
 <div id="legend">
-  <div class="leg"><div class="leg-swatch" style="background:#4af;border-radius:2px;height:3px;width:18px;"></div> EEG</div>
-  <div class="leg"><div class="leg-swatch" style="background:#ff5555"></div> Spike marker</div>
+  <div class="leg"><div class="leg-swatch" style="background:#111;border-radius:2px;height:3px;width:18px;"></div> EEG</div>
+  <div class="leg"><div class="leg-swatch" style="background:#cc0000"></div> Spike marker</div>
 </div>
 
 <div id="controls">
@@ -458,7 +461,7 @@ function draw() {
   ctx.clearRect(0, 0, W, H);
 
   // Background
-  ctx.fillStyle = '#0b0b18';
+  ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, W, H);
 
   // ── Y-axis ──
@@ -486,16 +489,16 @@ function draw() {
     if (y < PAD_TOP - 1 || y > H - PAD_BOTTOM + 1) continue;
 
     // Grid line across plot area
-    ctx.strokeStyle = '#1c1c2e';
+    ctx.strokeStyle = '#e8e8e8';
     ctx.lineWidth   = 1;
     ctx.beginPath(); ctx.moveTo(PAD_LEFT, y); ctx.lineTo(W, y); ctx.stroke();
 
     // Tick mark
-    ctx.strokeStyle = '#444';
+    ctx.strokeStyle = '#999';
     ctx.beginPath(); ctx.moveTo(PAD_LEFT - 4, y); ctx.lineTo(PAD_LEFT, y); ctx.stroke();
 
     // Label
-    ctx.fillStyle = '#555';
+    ctx.fillStyle = '#333';
     const label   = Math.round(v).toString();
     ctx.fillText(label, PAD_LEFT - 6, y + 3);
   }
@@ -505,7 +508,7 @@ function draw() {
   ctx.translate(10, PAD_TOP + plotH / 2);
   ctx.rotate(-Math.PI / 2);
   ctx.textAlign  = 'center';
-  ctx.fillStyle  = '#555';
+  ctx.fillStyle  = '#333';
   ctx.font       = '10px Courier New';
   ctx.fillText('µV', 0, 0);
   ctx.restore();
@@ -513,7 +516,7 @@ function draw() {
   // Zero line
   const zeroY = dataYToPx(0);
   if (zeroY > PAD_TOP && zeroY < H - PAD_BOTTOM) {
-    ctx.strokeStyle = '#2a2a44';
+    ctx.strokeStyle = '#bbb';
     ctx.lineWidth   = 1;
     ctx.setLineDash([5, 5]);
     ctx.beginPath(); ctx.moveTo(PAD_LEFT, zeroY); ctx.lineTo(W, zeroY); ctx.stroke();
@@ -521,24 +524,24 @@ function draw() {
   }
 
   // ── X-axis ticks & labels ──
-  ctx.fillStyle = '#444';
+  ctx.fillStyle = '#333';
   ctx.font      = '10px Courier New';
   ctx.textAlign = 'center';
   for (let t = 0; t <= 10; t++) {
     const x = PAD_LEFT + t / 10 * plotW;
-    ctx.strokeStyle = '#333';
+    ctx.strokeStyle = '#999';
     ctx.lineWidth   = 1;
     ctx.beginPath(); ctx.moveTo(x, H - PAD_BOTTOM); ctx.lineTo(x, H - PAD_BOTTOM + 4); ctx.stroke();
-    ctx.fillStyle = '#555';
+    ctx.fillStyle = '#333';
     ctx.fillText(t, x, H - PAD_BOTTOM + 14);
   }
   // X-axis label
-  ctx.fillStyle = '#444';
+  ctx.fillStyle = '#333';
   ctx.fillText('Time (s)', PAD_LEFT + plotW / 2, H - 4);
   ctx.textAlign = 'left';
 
   // EEG waveform
-  ctx.strokeStyle = '#33aaff';
+  ctx.strokeStyle = '#111111';
   ctx.lineWidth   = 1.2;
   ctx.beginPath();
   for (let i = 0; i < CHUNK_LEN; i++) {
@@ -555,20 +558,20 @@ function draw() {
     const y = dataYToPx(eegData[sIdx]);
 
     // Vertical tick line
-    ctx.strokeStyle = 'rgba(255, 75, 75, 0.8)';
+    ctx.strokeStyle = 'rgba(200, 0, 0, 0.8)';
     ctx.lineWidth   = 1.5;
     ctx.beginPath();
     ctx.moveTo(x, y - 14); ctx.lineTo(x, y + 14);
     ctx.stroke();
 
     // Dot
-    ctx.fillStyle = '#ff4444';
+    ctx.fillStyle = '#cc0000';
     ctx.beginPath();
     ctx.arc(x, y, 4.5, 0, Math.PI * 2);
     ctx.fill();
 
     // Triangle pointer above
-    ctx.fillStyle = 'rgba(255, 80, 80, 0.6)';
+    ctx.fillStyle = 'rgba(180, 0, 0, 0.6)';
     ctx.beginPath();
     ctx.moveTo(x - 5, y - 16);
     ctx.lineTo(x + 5, y - 16);
