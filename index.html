@@ -122,9 +122,9 @@
   }
 
   #keyboard-hint {
-    font-size: 11px;
-    color: #666;
-    margin-top: 6px;
+    font-size: 13px;
+    color: #555;
+    margin-top: 8px;
   }
   #keyboard-hint kbd {
     background: #f0f0f0;
@@ -292,7 +292,7 @@ const CHUNK_LEN        = 10000;
 const SAMPLE_RATE      = 1000;
 const CANVAS_HEIGHT    = 420;
 const PAD_TOP          = 24;
-const PAD_BOTTOM       = 36;
+const PAD_BOTTOM       = 42;
 const PAD_LEFT         = 72;
 const SNAP_THRESH_PX   = 28;   // max vertical pixels from line to register click
 const DESELECT_DIST_PX = 10;   // horizontal pixels near existing marker to deselect
@@ -481,7 +481,7 @@ function draw() {
   const step      = niceStep(visMax - visMin);
   const tickStart = Math.ceil(visMin / step) * step;
 
-  ctx.font      = '10px Courier New';
+  ctx.font      = '12px Courier New';
   ctx.textAlign = 'right';
 
   for (let v = tickStart; v <= visMax + step * 0.01; v += step) {
@@ -509,7 +509,7 @@ function draw() {
   ctx.rotate(-Math.PI / 2);
   ctx.textAlign  = 'center';
   ctx.fillStyle  = '#333';
-  ctx.font       = '10px Courier New';
+  ctx.font       = '12px Courier New';
   ctx.fillText('µV', 0, 0);
   ctx.restore();
 
@@ -523,9 +523,19 @@ function draw() {
     ctx.setLineDash([]);
   }
 
+  // ── Vertical dotted grid lines at each second ──
+  ctx.strokeStyle = '#ccc';
+  ctx.lineWidth   = 1;
+  ctx.setLineDash([3, 4]);
+  for (let t = 1; t < 10; t++) {   // skip 0 and 10 (at axis borders)
+    const x = PAD_LEFT + t / 10 * plotW;
+    ctx.beginPath(); ctx.moveTo(x, PAD_TOP); ctx.lineTo(x, H - PAD_BOTTOM); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
   // ── X-axis ticks & labels ──
   ctx.fillStyle = '#333';
-  ctx.font      = '10px Courier New';
+  ctx.font      = '12px Courier New';
   ctx.textAlign = 'center';
   for (let t = 0; t <= 10; t++) {
     const x = PAD_LEFT + t / 10 * plotW;
@@ -533,11 +543,11 @@ function draw() {
     ctx.lineWidth   = 1;
     ctx.beginPath(); ctx.moveTo(x, H - PAD_BOTTOM); ctx.lineTo(x, H - PAD_BOTTOM + 4); ctx.stroke();
     ctx.fillStyle = '#333';
-    ctx.fillText(t, x, H - PAD_BOTTOM + 14);
+    ctx.fillText(t, x, H - PAD_BOTTOM + 15);
   }
   // X-axis label
-  ctx.fillStyle = '#333';
-  ctx.fillText('Time (s)', PAD_LEFT + plotW / 2, H - 4);
+  ctx.fillStyle = '#555';
+  ctx.fillText('Time (s)', PAD_LEFT + plotW / 2, H - 3);
   ctx.textAlign = 'left';
 
   // EEG waveform
